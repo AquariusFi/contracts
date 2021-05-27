@@ -1,4 +1,4 @@
-// Modified from https://github.com/xdefilab/xhalflife-base/blob/master/contracts/XHalfLife.sol
+// Copied from https://github.com/xdefilab/xhalflife-base/blob/master/contracts/XHalfLife.sol
 
 // SPDX-License-Identifier: None
 pragma solidity 0.6.11;

@@ -98,8 +98,8 @@ contract LQTYToken is CheckContract, ILQTYToken, Ownable {
     uint internal immutable AUSDlpRewardsEntitlement;
     uint internal immutable AQUlpRewardsEntitlement;
 
-    uint private constant _liquidityFee = 25;                     // 4.0%
-    uint private constant _taxFee = 24;                           // 3.9%
+    uint private constant _liquidityFee = 25;                     // 2.5%
+    uint private constant _taxFee = 24;                           // 2.4%
     uint private constant _deflationFee = 1;                      // 0.1%
     uint private constant _1_THOUSAND_DENOMINATOR = 1e3;          // 1000
     

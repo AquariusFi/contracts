@@ -6,35 +6,46 @@ interface IERC20 {
     function transfer(address to, uint256 value) external returns (bool);
     function balanceOf(address who) external view returns (uint256);
     function totalSupply() external view returns (uint256);
+    function approve(address spender, uint256 amount) external returns (bool);
 }
 
 contract MultiSig {
     
-    IERC20 public token;
-    bool private initToken;
+    string public name;
+    string public symbol;
+    uint8 constant public decimals = 18;
+    
+    IERC20  public token;
+    
+    bool    private initToken;
     address private tokenSetter;
-
-    uint256 public threshold;
+    
     address[] public owners;
+    uint256 public threshold;
+    
     mapping (address => bool) public isOwner;
     mapping (bytes32 => uint256) public numberOfTransferSignatures;
+    mapping (bytes32 => uint256) public numberOfApproveSignatures;
     mapping (bytes32 => uint256) public numberOfAddOwnerSignatures;
     mapping (address => mapping(bytes32 => bool)) public hasSignTransfer;
+    mapping (address => mapping(bytes32 => bool)) public hasSignApprove;
     mapping (address => mapping(bytes32 => bool)) public hasSignAddOwner;
 
-    string constant public name = "MultiSig AQU";
-    string constant public symbol = "MAQU";
-    uint8  constant public decimals = 18;
-
     event SignTransfer(address indexed owner, address indexed recipient, uint256 amount);
+    event SignApprove(address indexed owner, address indexed spender, uint256 value);
     event SignAddOwner(address indexed owner, address indexed newOwner, uint256 threshold);
     event ThresholdUpdate(uint256 oldThreshol, uint256 newThreshol);
     event AddNewOwner(address indexed newOwner);
-
     
     constructor(
+        string memory _name,
+        string memory _symbol
     ) public {
-        owners.push(0x9100e62512645Ae113F56165981776c948e38182);  // address of aqu team
+
+        name = _name;
+        symbol = _symbol;
+
+        owners.push(0x9100e62512645Ae113F56165981776c948e38182);  // address of aquarius team
         owners.push(0x47a7d15B7452820DD7A565ea9C39D8b6cef51ed7);  // address of liquityFi team
         
         isOwner[0x9100e62512645Ae113F56165981776c948e38182] = true;
@@ -49,7 +60,7 @@ contract MultiSig {
         address _tokenAddress
     ) external {
         require(!initToken, "MultiSig: token has been initialized");
-        require(msg.sender = tokenSetter, "MultiSig: not token setter");
+        require(msg.sender == tokenSetter, "MultiSig: not token setter");
         token = IERC20(_tokenAddress);
         initToken = true;
     }
@@ -61,7 +72,7 @@ contract MultiSig {
     ) external {
         require(!isOwner[_newOwner], "MultiSig: it's already the owner");
         require(isOwner[msg.sender], "MultiSig: not owner");
-        require(_threshold <= (owners.length + 1), "MultiSig: invalid threshold");
+        require(_threshold >=2 && _threshold <= (owners.length + 1), "MultiSig: invalid threshold");
         
         bytes32 key = keccak256(abi.encodePacked(_newOwner, _threshold));
         require(!hasSignAddOwner[msg.sender][key], "MultiSig: you've already signed it");
@@ -87,6 +98,21 @@ contract MultiSig {
         }
     }
 
+    function totalSupply() external view returns (uint256){
+        return token.totalSupply();
+    }
+
+    function balanceOf(address _owner) public view returns (uint) {
+        if (isOwner[_owner]){
+            return token.balanceOf(address(this));
+        }
+        return 0;
+    }
+
+    function allowance(address owner, address spender) external view returns (uint256){
+        return 0;
+    }
+
     function transfer(address recipient, uint256 amount)  public returns (bool){
         
         require(isOwner[msg.sender], "MultiSig: not owner");
@@ -108,31 +134,38 @@ contract MultiSig {
                 hasSignTransfer[owners[i]][key] = false;
             }
         }
-        
-    }
 
-    function balanceOf(address _owner) public view returns (uint) {
-        if (isOwner[_owner]){
-            return token.balanceOf(address(this));
-        }
-        return 0;
+        return true;
     }
 
     function approve(address spender, uint256 value) external returns (bool){
-        return false;
+        require(isOwner[msg.sender], "MultiSig: not owner");
+
+        bytes32 key = keccak256(abi.encodePacked(spender, value));
+        require(!hasSignApprove[msg.sender][key], "MultiSig: you've already signed it");
+        
+        numberOfApproveSignatures[key]++;
+        hasSignApprove[msg.sender][key] = true;
+
+        emit SignApprove(msg.sender, spender, value);
+
+        if (numberOfApproveSignatures[key] >= threshold) {
+            token.approve(spender, value);
+            numberOfApproveSignatures[key] = 0;
+
+            for (uint256 i = 0; i < owners.length; i++) {
+                hasSignApprove[owners[i]][key] = false;
+            }
+        }
+
+        return true;
     }
 
     function transferFrom(address from, address to, uint256 value) external returns (bool){
         return false;
     }
 
-    function totalSupply() external view returns (uint256){
-          return token.totalSupply();
+    function getKey(address account, uint256 value) external view returns (bytes32) {
+        return keccak256(abi.encodePacked(account, value));
     }
-
-    function allowance(address owner, address spender) external view returns (uint256){
-        return 0;
-    }
-    
-   
 }
